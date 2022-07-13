@@ -246,6 +246,15 @@ class BaseCommandLineAPI(object):
             help="Whether to use implicit batch mode or dynamic shape mode."
         )
 
+        self._parser.add_argument(
+            "--use_dla_core",
+            type=int,
+            default=-1,
+            required=False,
+            help="Set to the device index of the DLA core you would like to "
+            "enable."
+        )
+
         # =========================== DEBUG Flags ========================== #
 
         self._parser.add_argument(

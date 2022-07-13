@@ -1,7 +1,5 @@
 #!/bin/bash
 
-nvidia-smi
-
 # Runtime Parameters
 MODEL_NAME=""
 DATA_DIR=""
