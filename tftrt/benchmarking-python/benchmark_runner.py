@@ -258,7 +258,7 @@ class BaseBenchmarkRunner(object, metaclass=abc.ABCMeta):
                 minimum_segment_size=self._args.minimum_segment_size,
                 precision_mode=tftrt_precision,
                 use_calibration=(tftrt_precision == trt.TrtPrecisionMode.INT8),
-                use_dla_core=self._args.use_dla_core,
+                dla_core=self._args.dla_core,
                 use_dynamic_shape=self._args.use_dynamic_shape,
             )
 

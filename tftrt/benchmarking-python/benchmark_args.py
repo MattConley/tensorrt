@@ -247,7 +247,7 @@ class BaseCommandLineAPI(object):
         )
 
         self._parser.add_argument(
-            "--use_dla_core",
+            "--dla_core",
             type=int,
             default=-1,
             required=False,
