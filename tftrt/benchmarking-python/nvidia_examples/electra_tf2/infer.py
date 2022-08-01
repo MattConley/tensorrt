@@ -45,6 +45,10 @@ sys.path.insert(0, benchmark_base_dir)
 from benchmark_args import BaseCommandLineAPI
 from benchmark_runner import BaseBenchmarkRunner
 
+from benchmark_logger import logging
+
+SAMPLES_IN_DATASET = 10950
+
 
 class CommandLineAPI(BaseCommandLineAPI):
 
@@ -153,6 +157,15 @@ class CommandLineAPI(BaseCommandLineAPI):
             "models, False for cased models."
         )
 
+    def _post_process_args(self, args):
+        args = super(CommandLineAPI, self)._post_process_args(args)
+        args.num_warmup_iterations = min(
+            int(SAMPLES_IN_DATASET / (args.batch_size) / 2),
+            args.num_warmup_iterations
+        )
+
+        return args
+
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
 # %%%%%%%%%%%%%%%%% IMPLEMENT MODEL-SPECIFIC FUNCTIONS HERE %%%%%%%%%%%%%%%%%% #
@@ -178,24 +191,44 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         def get_dataset_from_features(features, batch_size):
 
+            # yapf: disable
             all_unique_ids = tf.convert_to_tensor(
-                [f.unique_id for f in features], dtype=tf.int64)
+                [f.unique_id for f in features],
+                dtype=tf.int64
+            )
             all_input_ids = tf.convert_to_tensor(
-                [f.input_ids for f in features], dtype=tf.int64)
+                [f.input_ids for f in features],
+                dtype=tf.int64
+            )
             all_input_mask = tf.convert_to_tensor(
-                [f.attention_mask for f in features], dtype=tf.int64)
+                [f.attention_mask for f in features],
+                dtype=tf.int64
+            )
             all_segment_ids = tf.convert_to_tensor(
-                [f.token_type_ids for f in features], dtype=tf.int64)
+                [f.token_type_ids for f in features],
+                dtype=tf.int64
+            )
             all_start_pos = tf.convert_to_tensor(
-                [f.start_position for f in features], dtype=tf.int64)
+                [f.start_position for f in features],
+                dtype=tf.int64
+            )
             all_end_pos = tf.convert_to_tensor(
-                [f.end_position for f in features], dtype=tf.int64)
+                [f.end_position for f in features],
+                dtype=tf.int64
+            )
             all_cls_index = tf.convert_to_tensor(
-                [f.cls_index for f in features], dtype=tf.int64)
+                [f.cls_index for f in features],
+                dtype=tf.int64
+            )
             all_p_mask = tf.convert_to_tensor(
-                [f.p_mask for f in features], dtype=tf.float32)
+                [f.p_mask for f in features],
+                dtype=tf.float32
+            )
             all_is_impossible = tf.convert_to_tensor(
-                [f.is_impossible for f in features], dtype=tf.float32)
+                [f.is_impossible for f in features],
+                dtype=tf.float32
+            )
+            # yapf: enable
 
             dataset = tf.data.Dataset.from_tensor_slices((
                 all_unique_ids, all_input_ids, all_input_mask, all_segment_ids,
@@ -204,9 +237,7 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             ))
 
             dataset = dataset.batch(batch_size, drop_remainder=False)
-            dataset = dataset.prefetch(
-                buffer_size=tf.data.experimental.AUTOTUNE
-            )
+            dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
 
             return dataset
 
@@ -220,7 +251,6 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         dev_examples = processor.get_dev_examples(self._args.data_dir)
 
-        print("***** Loading features *****")
         # Load cached features
         squad_version = '2.0' if self._args.version_2_with_negative else '1.1'
         cache_dir = self._args.data_dir
@@ -249,7 +279,7 @@ class BenchmarkRunner(BaseBenchmarkRunner):
                 )
             )
 
-            print(f"**** Building Cache Files: {cached_dev_features_file} ****")
+            logging.debug(f"Building Cache Files: {cached_dev_features_file}")
             with open(cached_dev_features_file, "wb") as writer:
                 pickle.dump(dev_features, writer)
 
@@ -309,7 +339,6 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         return predictions, expected
 
-
     def evaluate_model(self, predictions, expected, bypass_data_to_eval):
         """Evaluate result predictions for entire dataset.
 
@@ -322,9 +351,11 @@ class BenchmarkRunner(BaseBenchmarkRunner):
         result = []
         for i, unique_id in enumerate(np.squeeze(expected["unique_ids"])):
             start_logits = predictions['tf_electra_for_question_answering'][i]
-            start_top_index = predictions['tf_electra_for_question_answering_1'][i]
+            start_top_index = predictions['tf_electra_for_question_answering_1'
+                                         ][i]
             end_logits = predictions['tf_electra_for_question_answering_2'][i]
-            end_top_index = predictions['tf_electra_for_question_answering_3'][i]
+            end_top_index = predictions['tf_electra_for_question_answering_3'][i
+                                                                              ]
             cls_logits = predictions['tf_electra_for_question_answering_4'][i]
 
             result.append(
@@ -346,9 +377,11 @@ class BenchmarkRunner(BaseBenchmarkRunner):
         )
 
         output_prediction_file = os.path.join(
-            self._args.output_dir, "predictions.json")
+            self._args.output_dir, "predictions.json"
+        )
         output_nbest_file = os.path.join(
-            self._args.output_dir, "nbest_predictions.json")
+            self._args.output_dir, "nbest_predictions.json"
+        )
 
         with open(output_prediction_file, "w") as f:
             f.write(json.dumps(answers, indent=4) + "\n")
@@ -367,16 +400,15 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             f"{os.path.join(self._args.data_dir, dev_file)} "
             f"{output_prediction_file}"
         )
-        if self._args.debug:
-            print(f"\nExecuting: `{command_str}`\n")
+
+        logging.debug(f"\nExecuting: `{command_str}`\n")
 
         eval_out = subprocess.check_output(shlex.split(command_str))
 
         # scores: {'exact_match': 87.06717123935667, 'f1': 92.78048326711645}
         scores = json.loads(eval_out.decode("UTF-8").strip())
 
-        if self._args.debug:
-            print("scores:", scores)
+        logging.debug("scores:", scores)
 
         metric_units = "f1"
 

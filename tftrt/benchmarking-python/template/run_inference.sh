@@ -2,12 +2,13 @@
 
 nvidia-smi
 
-set -x
-
 BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+set -x
 
 python ${BASE_DIR}/infer.py \
     --data_dir=/path/to/script \
+    --calib_data_dir=/path/to/script \
     --input_saved_model_dir=/path/to/saved_model \
     --batch_size=<BATCH_SIWZE> \
     --output_tensors_name="logits,probs" \

@@ -138,6 +138,11 @@ variables.data*
 
 # Local files
 /*.txt
+!requirements*.txt
+!pytest.ini
 
 # Top Level Script Files
 /*.sh
+
+# Benchmark Result Dir
+/benchmark_data*

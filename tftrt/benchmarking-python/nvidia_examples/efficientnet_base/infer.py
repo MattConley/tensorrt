@@ -95,7 +95,7 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
             padded_center_crop_size = tf.cast(
                 ((image_size / (image_size+crop_padding)) *
-                tf.cast(tf.minimum(image_height, image_width), tf.float32)),
+                 tf.cast(tf.minimum(image_height, image_width), tf.float32)),
                 tf.int32
             )
 
@@ -196,17 +196,17 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             tf.data.TFRecordDataset,
             cycle_length=10,
             block_length=1,
-            num_parallel_calls=tf.data.experimental.AUTOTUNE
+            num_parallel_calls=tf.data.AUTOTUNE
         )
 
         parse_record_fn = lambda record: parse_record(
             record=record, image_size=self._args.input_size
         )
         dataset = dataset.map(
-            parse_record_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE
+            parse_record_fn, num_parallel_calls=tf.data.AUTOTUNE
         )
         dataset = dataset.batch(self._args.batch_size, drop_remainder=False)
-        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         return dataset, None
 
@@ -244,14 +244,10 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         return (
             np.mean(
-                np.argmax(
-                    predictions["data"], 1) == np.argmax(expected["data"],
-                    axis=1
-                )
-            ) * 100.0,
-            "Top-1 Accuracy %"
+                np.argmax(predictions["data"], 1) ==
+                np.argmax(expected["data"], axis=1)
+            ) * 100.0, "Top-1 Accuracy %"
         )
-
 
 
 if __name__ == '__main__':

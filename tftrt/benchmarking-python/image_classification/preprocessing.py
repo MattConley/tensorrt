@@ -241,3 +241,37 @@ def resnet50_v1_5_tf1_ngc_preprocess(
         image = tf.squeeze(image, [0])
     image = image * 255
     return image
+
+
+def vision_transformer_preprocess(image, height, width):
+    image_resized = tf.image.resize(image, (height, width))
+    image_resized = tf.cast(image_resized, tf.float32)
+    image_resized = (image_resized-127.5) / 127.5
+    return image_resized
+
+
+def swin_transformer_preprocess(image, height, width):
+
+    if height != width:
+        raise UnimplementedError(
+            "Preprocessed image must have the same height and width."
+        )
+    else:
+        size = height
+
+    crop_layer = tf.keras.layers.CenterCrop(size, size)
+    norm_layer = tf.keras.layers.Normalization(
+        mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+        variance=[(0.229 * 255)**2, (0.224 * 255)**2, (0.225 * 255)**2],
+    )
+
+    if size == 224:
+        resize_size = int((256/224) * size)
+        image = tf.image.resize(
+            image, (resize_size, resize_size), method="bicubic"
+        )
+        image = crop_layer(image)
+    else:
+        image = tf.image.resize(image, (size, size), method="bicubic")
+
+    return norm_layer(image)

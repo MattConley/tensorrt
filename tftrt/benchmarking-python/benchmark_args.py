@@ -13,6 +13,7 @@ from tensorflow.python.saved_model import tag_constants
 from tensorflow.python.saved_model.signature_constants import \
     DEFAULT_SERVING_SIGNATURE_DEF_KEY
 
+from benchmark_logger import logging
 from benchmark_utils import print_dict
 
 
@@ -174,6 +175,15 @@ class BaseCommandLineAPI(object):
             "generated and used at every iteration."
         )
 
+        self._parser.add_argument(
+            "--precision",
+            type=str,
+            choices=self.ALLOWED_PRECISION_MODES,
+            default="FP32",
+            help="Precision mode to use. FP16 and INT8 modes only works if "
+            "--use_tftrt is used."
+        )
+
         # =========================== TF-TRT Flags ========================== #
 
         self._add_bool_argument(
@@ -194,7 +204,8 @@ class BaseCommandLineAPI(object):
         self._parser.add_argument(
             "--max_workspace_size",
             type=int,
-            default=DEFAULT_TRT_MAX_WORKSPACE_SIZE_BYTES,
+            # Ensuring default of minimum 8GB
+            default=max(1 << 33, DEFAULT_TRT_MAX_WORKSPACE_SIZE_BYTES),
             help="The maximum GPU temporary memory which the TRT engine can "
             "use at execution time."
         )
@@ -230,15 +241,6 @@ class BaseCommandLineAPI(object):
             help="If set to True, TensorRT engines are built before runtime."
         )
 
-        self._parser.add_argument(
-            "--precision",
-            type=str,
-            choices=self.ALLOWED_PRECISION_MODES,
-            default="FP32",
-            help="Precision mode to use. FP16 and INT8 modes only works if "
-            "--use_tftrt is used."
-        )
-
         self._add_bool_argument(
             name="use_dynamic_shape",
             default=False,
@@ -255,7 +257,31 @@ class BaseCommandLineAPI(object):
             "enable."
         )
 
-        # =========================== DEBUG Flags ========================== #
+        # =========================== Metric Flags ========================== #
+
+        self._parser.add_argument(
+            "--experiment_name",
+            type=str,
+            default=None,
+            help="Name of the experiment being run, only used for archiving "
+            "objectives: exports in JSON or CSV."
+        )
+
+        self._parser.add_argument(
+            "--model_name",
+            type=str,
+            required=True,
+            default=None,
+            help="Name of the model being benchmarked."
+        )
+
+        self._parser.add_argument(
+            "--model_source",
+            type=str,
+            required=True,
+            default=None,
+            help="Source of the model where it was originally published."
+        )
 
         self._parser.add_argument(
             "--export_metrics_json_path",
@@ -274,6 +300,16 @@ class BaseCommandLineAPI(object):
         )
 
         self._parser.add_argument(
+            "--upload_metrics_endpoint",
+            type=str,
+            default=None,
+            help="If set, the benchmark will upload the metrics in JSON format "
+            "to the set endpoint using a PUT requests."
+        )
+
+        # =========================== TF Profiling =========================== #
+
+        self._parser.add_argument(
             "--tf_profile_export_path",
             type=str,
             default=None,
@@ -287,6 +323,8 @@ class BaseCommandLineAPI(object):
             required=False,
             help="If set to True, will add extra information to the TF Profile."
         )
+
+        # ============================ Debug Flags =========================== #
 
         self._add_bool_argument(
             name="debug",
@@ -345,6 +383,13 @@ class BaseCommandLineAPI(object):
                 "not a directory"
             )
 
+        if args.use_synthetic_data and args.num_iterations is None:
+            raise ValueError(
+                "The use of --use_synthetic_data requires to "
+                "specify the number of iterations using "
+                "--num_iterations=X."
+            )
+
         if (args.num_iterations is not None and
                 args.num_iterations <= args.num_warmup_iterations):
             raise ValueError(
@@ -352,10 +397,7 @@ class BaseCommandLineAPI(object):
                 f"({args.num_iterations} <= {args.num_warmup_iterations})"
             )
 
-        if (
-            args.tf_profile_verbose and
-            args.tf_profile_export_path is None
-        ):
+        if (args.tf_profile_verbose and args.tf_profile_export_path is None):
             raise ValueError(
                 "`--tf_profile_verbose` can only be set if "
                 "`--tf_profile_export_path=/path/to/export` is defined."
@@ -391,7 +433,18 @@ class BaseCommandLineAPI(object):
                         "doesn't exist or is not a directory"
                     )
 
+        if args.upload_metrics_endpoint is not None:
+            raise NotImplementedError("This feature is not yet implemented.")
+
     def _post_process_args(self, args):
+        if args.use_synthetic_data:
+            # This variable is not used in synthetic data mode.
+            # Let's fix it to 1 to save memory.
+            args.total_max_samples = 1
+
+        if args.debug or args.debug_data_aggregation or args.debug_performance:
+            logging.set_verbosity(logging.DEBUG)
+
         return args
 
     def parse_args(self):
@@ -400,7 +453,7 @@ class BaseCommandLineAPI(object):
         args = self._post_process_args(args)
         self._validate_args(args)
 
-        print("\nBenchmark arguments:")
+        logging.info("Benchmark arguments:")
         print_dict(vars(args))
         print()
 

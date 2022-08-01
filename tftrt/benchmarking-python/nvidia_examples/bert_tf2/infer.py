@@ -41,6 +41,8 @@ sys.path.insert(0, benchmark_base_dir)
 from benchmark_args import BaseCommandLineAPI
 from benchmark_runner import BaseBenchmarkRunner
 
+from benchmark_logger import logging
+
 
 class CommandLineAPI(BaseCommandLineAPI):
 
@@ -144,8 +146,7 @@ class BenchmarkRunner(BaseBenchmarkRunner):
         """
 
         predict_file = os.path.join(
-            self._args.data_dir,
-            "squad/v1.1/dev-v1.1.json"
+            self._args.data_dir, "squad/v1.1/dev-v1.1.json"
         )
 
         vocab_file = os.path.join(
@@ -179,21 +180,29 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             batch_size=1
         )
 
-        all_unique_ids = tf.convert_to_tensor(
-            [f.unique_id for f in eval_features], dtype=tf.int32)
-        all_input_ids = tf.convert_to_tensor(
-            [f.input_ids for f in eval_features], dtype=tf.int32)
-        all_input_mask = tf.convert_to_tensor(
-            [f.input_mask for f in eval_features], dtype=tf.int32)
-        all_segment_ids = tf.convert_to_tensor(
-            [f.segment_ids for f in eval_features], dtype=tf.int32)
+        all_unique_ids = tf.convert_to_tensor([
+            f.unique_id for f in eval_features
+        ],
+                                              dtype=tf.int32)
+        all_input_ids = tf.convert_to_tensor([
+            f.input_ids for f in eval_features
+        ],
+                                             dtype=tf.int32)
+        all_input_mask = tf.convert_to_tensor([
+            f.input_mask for f in eval_features
+        ],
+                                              dtype=tf.int32)
+        all_segment_ids = tf.convert_to_tensor([
+            f.segment_ids for f in eval_features
+        ],
+                                               dtype=tf.int32)
 
         dataset = tf.data.Dataset.from_tensor_slices(
             (all_unique_ids, all_input_ids, all_input_mask, all_segment_ids)
         )
 
         dataset = dataset.batch(self._args.batch_size, drop_remainder=False)
-        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         bypass_data_to_eval = {
             "eval_features": eval_features,
@@ -291,8 +300,8 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             f"{sys.executable} {os.path.join(squad_dir, eval_file)} "
             f"{os.path.join(squad_dir, dev_file)} {output_prediction_file}"
         )
-        if self._args.debug:
-            print(f"\nExecuting: `{command_str}`\n")
+
+        logging.debug(f"\nExecuting: `{command_str}`\n")
 
         eval_out = subprocess.check_output(shlex.split(command_str))
 

@@ -55,9 +55,11 @@ class CommandLineAPI(BaseCommandLineAPI):
             help="Name of the output tensor, see `analysis.txt`"
         )
 
+
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
 # %%%%%%%%%%%%%%%%% IMPLEMENT MODEL-SPECIFIC FUNCTIONS HERE %%%%%%%%%%%%%%%%%% #
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% #
+
 
 class BenchmarkRunner(BaseBenchmarkRunner):
 
@@ -106,16 +108,16 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         dataset = dataset.map(
             map_func=partial(tf.io.parse_example, features=feature_spec),
-            num_parallel_calls=tf.data.experimental.AUTOTUNE
+            num_parallel_calls=tf.data.AUTOTUNE
         )
 
         out_type = tf.float16 if self._args.amp else tf.float32
         dataset = dataset.map(
             map_func=partial(_remap_values, out_type=out_type),
-            num_parallel_calls=tf.data.experimental.AUTOTUNE
+            num_parallel_calls=tf.data.AUTOTUNE
         )
 
-        dataset = dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.prefetch(buffer_size=tf.data.AUTOTUNE)
 
         return dataset, None
 
@@ -144,7 +146,6 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         return predictions, expected
 
-
     def evaluate_model(self, predictions, expected, bypass_data_to_eval):
         """Evaluate result predictions for entire dataset.
 
@@ -159,7 +160,6 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             predictions["sim_model_1"][:, 0] - predictions["sim_model_1"][:, 1]
         )
         auc_score = auc(expected["sim_model_1"], logit_diff).numpy()
-
 
         return auc_score * 100, "ROC AUC"
 

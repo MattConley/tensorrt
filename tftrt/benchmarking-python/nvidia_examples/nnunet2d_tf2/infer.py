@@ -42,7 +42,7 @@ sys.path.insert(0, benchmark_base_dir)
 
 from benchmark_args import BaseCommandLineAPI
 from benchmark_runner import BaseBenchmarkRunner
-from benchmark_utils import patch_dali_dataset
+from dataloading_utils import patch_dali_dataset
 
 
 class CommandLineAPI(BaseCommandLineAPI):
@@ -111,7 +111,9 @@ class BenchmarkRunner(BaseBenchmarkRunner):
 
         def crop(x, num_image_slices):
             return fn.crop(
-                x, crop=[num_image_slices, 192, 160], out_of_bounds_policy="pad"
+                x,
+                crop=[num_image_slices, 192, 160],
+                out_of_bounds_policy="pad"
             )
 
         class EvalPipeline(Pipeline):
@@ -135,7 +137,8 @@ class BenchmarkRunner(BaseBenchmarkRunner):
                     self.input_y(name="ReaderY").gpu()
                 )
                 img, lbl = (
-                    fn.reshape(img, layout="DHWC"), fn.reshape(lbl, layout="DHWC")
+                    fn.reshape(img,
+                               layout="DHWC"), fn.reshape(lbl, layout="DHWC")
                 )
                 img, lbl = (
                     crop(img, self._num_image_slices),
@@ -213,7 +216,6 @@ class BenchmarkRunner(BaseBenchmarkRunner):
             )
 
         return predictions, expected
-
 
     def evaluate_model(self, predictions, expected, bypass_data_to_eval):
         """Evaluate result predictions for entire dataset.

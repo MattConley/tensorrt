@@ -1,5 +1,7 @@
 #!/bin/bash
 
+BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 # Runtime Parameters
 MODEL_NAME=""
 DATA_DIR=""
@@ -31,10 +33,13 @@ do
         shift # Remove --output_tensors_name= from processing
         ;;
         *)
-        BYPASS_ARGUMENTS=" ${BYPASS_ARGUMENTS} ${arg}"
+        BYPASS_ARGUMENTS="${BYPASS_ARGUMENTS} ${arg}"
         ;;
     esac
 done
+
+# Trimming front and back whitespaces
+BYPASS_ARGUMENTS=$(echo ${BYPASS_ARGUMENTS} | tr -s " ")
 
 # ============== Set model specific parameters ============= #
 
@@ -72,12 +77,6 @@ case ${MODEL_NAME} in
     NUM_CLASSES=1000
     ;;
 
-  "resnet50-v1.5_tf1_ngc" )
-    NUM_CLASSES=1000
-    OUTPUT_TENSORS_NAME="classes"
-    PREPROCESS_METHOD="resnet50_v1_5_tf1_ngc_preprocess"
-    ;;
-
   "resnet50v2_backbone" | "resnet50v2_sparse_backbone" )
     INPUT_SIZE=256
     OUTPUT_TENSORS_NAME="outputs"
@@ -99,12 +98,12 @@ echo "[*] NUM_CLASSES: ${NUM_CLASSES}"
 echo "[*] MAX_SAMPLES: ${MAX_SAMPLES}"
 echo "[*] OUTPUT_TENSORS_NAME: ${OUTPUT_TENSORS_NAME}"
 echo ""
-echo "[*] BYPASS_ARGUMENTS: $(echo \"${BYPASS_ARGUMENTS}\" | tr -s ' ')"
+echo "[*] BYPASS_ARGUMENTS: ${BYPASS_ARGUMENTS}"
 echo -e "********************************************************************\n"
 
 # ======================= ARGUMENT VALIDATION ======================= #
 
-# Dataset Directory
+# ----------------------  Dataset Directory --------------
 
 if [[ -z ${DATA_DIR} ]]; then
     echo "ERROR: \`--data_dir=/path/to/directory\` is missing."
@@ -137,25 +136,18 @@ fi
 
 # %%%%%%%%%%%%%%%%%%%%%%% ARGUMENT VALIDATION %%%%%%%%%%%%%%%%%%%%%%% #
 
-BENCH_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-cd ${BENCH_DIR}
+set -x
 
-# Execute the example
-COMMAND="python image_classification.py \
+python ${BASE_DIR}/infer.py \
     --data_dir ${DATA_DIR} \
     --calib_data_dir ${DATA_DIR} \
     --input_saved_model_dir ${INPUT_SAVED_MODEL_DIR} \
     --output_saved_model_dir /tmp/$RANDOM \
+    --model_name "${MODEL_NAME}" \
+    --model_source "tf_models_image" \
     --input_size ${INPUT_SIZE} \
     --preprocess_method ${PREPROCESS_METHOD} \
     --num_classes ${NUM_CLASSES} \
     --total_max_samples=${MAX_SAMPLES} \
     --output_tensors_name=${OUTPUT_TENSORS_NAME} \
-    ${BYPASS_ARGUMENTS}"
-
-COMMAND=$(echo ${COMMAND} | sed 's/ *$//g')  # Trimming whitespaces
-
-echo -e "**Executing:**\n\n${COMMAND}\n"
-sleep 5
-
-eval ${COMMAND}
+    ${BYPASS_ARGUMENTS}
